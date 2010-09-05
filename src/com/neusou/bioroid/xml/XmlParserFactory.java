@@ -1,4 +1,4 @@
-package com.neusou;
+package com.neusou.bioroid.xml;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
