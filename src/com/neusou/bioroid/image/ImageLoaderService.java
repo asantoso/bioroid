@@ -14,7 +14,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 
 import com.neusou.Logger;
-import com.neusou.async.UserTaskExecutionScope;
+import com.neusou.bioroid.async.UserTaskExecutionScope;
 import com.neusou.bioroid.image.ImageLoader.AsyncListener;
 import com.neusou.bioroid.image.ImageLoader.AsyncLoaderInput;
 

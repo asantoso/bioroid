@@ -41,8 +41,8 @@ import android.widget.ImageView;
 import com.neusou.DataState;
 import com.neusou.Logger;
 import com.neusou.SoftHashMap;
-import com.neusou.async.UserTask;
-import com.neusou.async.UserTaskExecutionScope;
+import com.neusou.bioroid.async.UserTask;
+import com.neusou.bioroid.async.UserTaskExecutionScope;
 import com.neusou.bioroid.db.DatabaseHelper;
 
 public class ImageLoader {
