@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout
+xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+	android:background="#00000000"
+	android:isScrollContainer="false"
+>
+
+<include layout="@layout/custom_title"
+
+/>
+    
+<ExpandableListView 
+	android:id="@+id/list" 
+	android:layout_width="fill_parent" 
+    android:layout_height="fill_parent"    
+    android:layout_below="@+id/topheader_container"   
+    android:layout_above="@+id/bottomheader"
+    android:background="#00000000"
+    android:nextFocusLeft="@+id/ab_refresh"
+    android:nextFocusRight="@+id/ab_post"  
+    android:isScrollContainer="false"   
+/>
+
+<LinearLayout
+	android:layout_width="fill_parent" 
+	android:layout_height="wrap_content"
+	android:layout_alignParentBottom="true"
+	android:orientation="vertical"
+	android:id="@+id/bottomheader"
+	android:nextFocusUp="@+id/list"
+	android:background="#00000000"
+>
+
+<include 
+	android:id="@+id/actionbar"
+	layout="@layout/include_actionbar"
+	android:layout_width="wrap_content" 
+	android:layout_height="wrap_content"
+	android:layout_above="@+id/ad"	
+	/>
+
+<include 
+	layout="@layout/include_admob"
+	android:visibility="gone"
+	/>
+	
+</LinearLayout>
+    
+</RelativeLayout>

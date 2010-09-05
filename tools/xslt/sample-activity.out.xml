@@ -1,0 +1,86 @@
+package com.neusou.android;public class MyActivity extends Activity{
+
+		ExpandableListView mlist;
+LinearLayout mbottomheader;
+
+	public void onCreate(Bundle savedInstanceState){
+		setContentView(R.layout.);
+		bindViews();
+		getIntentExtras();
+		initObjects();
+		initViews();
+		initBroadcastReceivers();	
+	}
+	
+	public void onPostCreate(){
+		super.onPostCreate();
+	}
+	
+	public void onDestroy(){
+	 	super.onDestroy();
+	}
+	
+	public void onStart(){
+		super.onStart();
+		doRegisterReceivers();
+	}
+	
+	public void onStop(){
+		super.onStop();
+		doUnRegisterReceivers();
+	}
+	
+	public void onResume(){
+		super.onResume();
+		resolveData();	 
+	}
+	
+	public void onPause(){
+	 	super.onPause();
+	}
+	
+	public void onPostResume(){
+	 	super.onPostResume();
+	}
+	
+	public void onActivityResult(int requestCode, int resultCode, Intent data){
+	 	
+	}
+	
+	public void getIntentExtras(){
+	 
+	}
+	
+	public void bindViews(){
+		mlist = (ExpandableListView)findViewById(R.id.list);
+mbottomheader = (LinearLayout)findViewById(R.id.bottomheader);
+
+	}
+	
+	public void initObjects(){
+	 
+	}
+	
+	public void initViews(){
+	 
+	}
+	
+	public void initBroadcastReceivers(){
+	 
+	}
+	
+	public void doRegisterReceivers(){
+	 
+	}
+	
+	public void doUnRegisterReceivers(){
+	 
+	}
+	
+	public void resolveData(){
+	 
+	}
+	
+		
+}
+	
