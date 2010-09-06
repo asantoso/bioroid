@@ -46,6 +46,11 @@ public abstract class RestfulService extends Service {
 	public abstract void onProcessResponse(Intent intent, int startId);
 	public abstract RestfulClient<?> getClient();
 	
+	class Metadata{
+		public static final String CACHE_RESPONSE = "cacheResponse";
+		public static final String IDENTIFIER = "identifier";
+	}
+	
 	/**
 	 * Reads metadata from manifest and applies it
 	 * 
@@ -57,8 +62,10 @@ public abstract class RestfulService extends Service {
 			metadata = ctx.getPackageManager().getServiceInfo(
 					new ComponentName(ctx, ctx.getClass()),
 					PackageManager.GET_META_DATA).metaData;
-
-			//String code = metadata.getString("code");
+			
+			boolean useCache = metadata.getBoolean(Metadata.CACHE_RESPONSE);
+			getClient().setUseCacheByDefault(useCache);
+			
 			//String contextPackageName = this.getApplicationContext().getPackageName();
 			//Logger.l(Logger.DEBUG, LOG_TAG, "*******************\n****************** "+contextPackageName+" CODE: "+code);
 		} catch (NameNotFoundException e) {
@@ -68,6 +75,10 @@ public abstract class RestfulService extends Service {
 	
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
+		if(intent == null){
+			return START_STICKY;
+		}
+		
 		String action = intent.getAction();
 		Logger.l(Logger.DEBUG, LOG_TAG, "onStartCommand. action:"+action);
 		RestfulClient<?> client = getClient();
@@ -98,7 +109,7 @@ public abstract class RestfulService extends Service {
 			onExecuteRequest(intent, startId);	    	
 		}else if(action.equals(client.INTENT_PROCESS_RESPONSE)){
 			onProcessResponse(intent, startId);
-			mProcessor.onHandleIntent(intent);	
+			mProcessor.onHandleIntent(intent);
 		}
 	}
 	

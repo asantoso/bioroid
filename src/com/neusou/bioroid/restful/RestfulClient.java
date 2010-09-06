@@ -71,6 +71,8 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	 */
 	public String XTRA_REQUEST;
 	
+	
+	
 	private String mName = "default";
 	private Context mContext;
 	private ThreadPoolExecutor mExecutor = new ThreadPoolExecutor(1,20,1,TimeUnit.SECONDS,new LinkedBlockingQueue<Runnable>());
@@ -87,7 +89,9 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	public static final String KEY_CALLBACK_INTENT = "CALLBACK_INTENT";
 	public static final String KEY_CALLBACK_INTENT_ERROR = "CALLBACK_INTENT_ERROR";
 	public static final String KEY_CALLBACK_INTENT_SUCCESS = "CALLBACK_INTENT_SUCCESS";
+	public static final String KEY_USE_CACHE = "USE_CACHE";
 	
+	protected boolean mUseCacheByDefault = false;
 	protected CacheResponseDbHelper mCacheResponseDbHelper;
 	protected SQLiteDatabase mCacheReponseDb;
 	protected boolean mResponseCacheInitialized = false; 
@@ -104,6 +108,10 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		}
 	}
 
+	public void setUseCacheByDefault(boolean use){
+		mUseCacheByDefault = use;
+	}
+	
 	static class CacheTable {
 		public static final String TABLE = "bioroid_restful_response_cache"; 
 		public static final int COLINDEX_ID = 0;
@@ -355,11 +363,12 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		
 		String exceptionMessage = null;
 		String cachedResponse = null;
-		boolean useCachedResponse = false; 
+		
+		boolean isResponseCached = data.getBoolean(KEY_USE_CACHE, mUseCacheByDefault); 
 		
 		String requestUrl = httpMethod.getRequestLine().getUri().toString();
 		
-		if(mResponseCacheInitialized){
+		if(mResponseCacheInitialized && isResponseCached){
 			cachedResponse = mCacheResponseDbHelper.getResponse(requestUrl, httpMethod.getMethod());		
 			Logger.l(Logger.DEBUG, LOG_TAG, "#########################  cached response: "+cachedResponse);
 			response = mResponseHandler.createResponse(cachedResponse);
@@ -379,7 +388,7 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		}
 		
 		// cache the response
-		if(exceptionMessage == null && mResponseCacheInitialized){			
+		if(exceptionMessage == null && mResponseCacheInitialized && isResponseCached){			
 			Logger.l(Logger.DEBUG, LOG_TAG, "#########################  inserting response to cache: "+response);
 			RestfulClient.RestfulMethod method = data.getParcelable(XTRA_METHOD);
 			mCacheResponseDbHelper.insertResponse(requestUrl, response.getData().toString(), Calendar.getInstance().getTime().getTime(), httpMethod.getMethod(), method.getCallId());

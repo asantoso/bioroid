@@ -10,6 +10,7 @@ import android.os.Parcelable;
 
 import com.neusou.Logger;
 import com.neusou.bioroid.restful.RestfulClient.RestfulMethod;
+import com.neusou.bioroid.restful.RestfulService.Metadata;
 
 public abstract class RestfulResponseProcessor<S extends Parcelable> {
 
@@ -53,7 +54,7 @@ public abstract class RestfulResponseProcessor<S extends Parcelable> {
 					new ComponentName(mContext, mContext.getClass()),
 					PackageManager.GET_META_DATA).metaData;
 
-			String identifier = metadata.getString("identifier");
+			String identifier = metadata.getString(Metadata.IDENTIFIER);
 
 			//Logger.l(Logger.DEBUG, LOG_TAG, "identifier: "+identifier);
 			
