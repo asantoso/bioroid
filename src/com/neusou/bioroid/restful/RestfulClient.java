@@ -368,9 +368,11 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		
 		String requestUrl = httpMethod.getRequestLine().getUri().toString();
 		
+		Logger.l(Logger.DEBUG, LOG_TAG, "# # # # #  useCache? "+isResponseCached);
+		
 		if(mResponseCacheInitialized && isResponseCached){
 			cachedResponse = mCacheResponseDbHelper.getResponse(requestUrl, httpMethod.getMethod());		
-			Logger.l(Logger.DEBUG, LOG_TAG, "#########################  cached response: "+cachedResponse);
+			Logger.l(Logger.DEBUG, LOG_TAG, "# # # # # cached response: "+cachedResponse);
 			response = mResponseHandler.createResponse(cachedResponse);
 		}
 		
@@ -389,7 +391,7 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		
 		// cache the response
 		if(exceptionMessage == null && mResponseCacheInitialized && isResponseCached){			
-			Logger.l(Logger.DEBUG, LOG_TAG, "#########################  inserting response to cache: "+response);
+			Logger.l(Logger.DEBUG, LOG_TAG, "# # # # # inserting response to cache: "+response);
 			RestfulClient.RestfulMethod method = data.getParcelable(XTRA_METHOD);
 			mCacheResponseDbHelper.insertResponse(requestUrl, response.getData().toString(), Calendar.getInstance().getTime().getTime(), httpMethod.getMethod(), method.getCallId());
 		}
