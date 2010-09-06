@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.util.Log;
 
 import com.neusou.Logger;
 import com.neusou.bioroid.restful.RestfulClient.RestfulMethod;
@@ -24,7 +25,7 @@ public abstract class RestfulCallback<S extends Parcelable> extends BroadcastRec
 	 * Creates a RestfulCallback with the intent action to listen
 	 * @param action
 	 */
-	public RestfulCallback(RestfulClient<?> client) {
+	public RestfulCallback(RestfulClient<?> client) {		
 		callbackAction = client.CALLBACK_ACTION;
 		xtraMethod = client.XTRA_METHOD;
 		xtraResponse = client.XTRA_RESPONSE;

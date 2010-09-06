@@ -4,7 +4,7 @@ import android.util.Log;
 
 public class Logger {
 	
-	public static boolean show = false;
+	public static boolean show = true;
 	public static final byte DEBUG = 0;
 	public static final byte ERROR = 1;
 	public static final byte INFO = 2;

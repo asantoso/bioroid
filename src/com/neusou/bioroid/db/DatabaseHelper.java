@@ -28,10 +28,10 @@ public abstract class DatabaseHelper extends SQLiteOpenHelper{
  
     protected final Context myContext;        
     protected int[] mRawParts;
-    private AssetManager mAssetManager;
+    protected int bufferSize = 4096;
 
-    private String mDBName;
-    
+    private AssetManager mAssetManager;
+    private String mDBName;     
     private static final String LOG_TAG = "DBHelper";
     
    
@@ -155,9 +155,10 @@ public abstract class DatabaseHelper extends SQLiteOpenHelper{
     	InputStream databaseInputStream;
   
     	int numparts = mRawParts.length;
+    	
     	for(int i=0;i<numparts;i++){
     	  
-    		byte[] buffer = new byte[1024];
+    		byte[] buffer = new byte[bufferSize];
     		try{
     			databaseInputStream = myContext.getResources().openRawResource(mRawParts[i]);
     			while ( (databaseInputStream.read(buffer)) > 0 ) {

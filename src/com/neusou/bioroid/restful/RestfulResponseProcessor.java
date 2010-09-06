@@ -18,6 +18,12 @@ public abstract class RestfulResponseProcessor<S extends Parcelable> {
 	Context mContext;
 	Class<?> mServiceClass;
 	
+	/**
+	 * Creates a restful response processor
+	 * 
+	 * @param ctx
+	 * @param serviceClass 
+	 */
 	public RestfulResponseProcessor(Context ctx, Class<?> serviceClass) {
 		this.mContext = ctx;
 		this.mServiceClass= serviceClass;
@@ -82,8 +88,7 @@ public abstract class RestfulResponseProcessor<S extends Parcelable> {
 			if (request != null && request.containsKey(xtra_method)) {
 				Parcelable restMethod = request.getParcelable(xtra_method);
 				S response = data.getParcelable(xtra_response);
-				handleResponse(response, (RestfulMethod) restMethod, data
-					.getBundle(xtra_request), error);
+				handleResponse(response, (RestfulMethod) restMethod, data.getBundle(xtra_request), error);
 			} else {
 			//	Logger.l(Logger.WARN, LOG_TAG, "no method data. value of xtra "+xtra_method+" is null");
 			}
@@ -94,7 +99,6 @@ public abstract class RestfulResponseProcessor<S extends Parcelable> {
 		
 	}
 
-	protected abstract void handleResponse(S response, RestfulMethod method,
-			Bundle requestdata, String error);
+	protected abstract void handleResponse(S response, RestfulMethod method, Bundle requestdata, String error);
 
 }

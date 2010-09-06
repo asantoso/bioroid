@@ -3,6 +3,7 @@ package com.neusou.bioroid.restful;
 import java.io.IOException;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Calendar;
 import java.util.LinkedHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -13,7 +14,6 @@ import org.apache.http.ConnectionReuseStrategy;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpVersion;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
@@ -26,13 +26,18 @@ import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HttpContext;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.util.Log;
 
 import com.neusou.Logger;
+import com.neusou.bioroid.db.DatabaseHelper;
 
 public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	
@@ -71,7 +76,7 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	private ThreadPoolExecutor mExecutor = new ThreadPoolExecutor(1,20,1,TimeUnit.SECONDS,new LinkedBlockingQueue<Runnable>());
 	
 	private LinkedHashMap<Integer, Class<?>> mMethods = new LinkedHashMap<Integer, Class<?>>(1);
-	private ResponseHandler<S> mResponseHandler;
+	private RestfulResponseHandler<S> mResponseHandler;
 	
 	public static final String KEY_CALL_METHOD = "CALL_METHOD";
 	public static final String KEY_PROCESS_RESPONSE = "PROCESS_RESPONSE";
@@ -82,6 +87,87 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	public static final String KEY_CALLBACK_INTENT = "CALLBACK_INTENT";
 	public static final String KEY_CALLBACK_INTENT_ERROR = "CALLBACK_INTENT_ERROR";
 	public static final String KEY_CALLBACK_INTENT_SUCCESS = "CALLBACK_INTENT_SUCCESS";
+	
+	protected CacheResponseDbHelper mCacheResponseDbHelper;
+	protected SQLiteDatabase mCacheReponseDb;
+	protected boolean mResponseCacheInitialized = false; 
+	
+	public void initCacheDatabase(Context context, String dbName, int version, int... sqlite){		
+		try {
+			mCacheResponseDbHelper = new CacheResponseDbHelper(context, dbName, version);
+			mCacheResponseDbHelper.createDataBase(sqlite);
+			mCacheReponseDb = mCacheResponseDbHelper.getWritableDatabase();
+			mResponseCacheInitialized = true;
+		} catch (IOException e) {
+			e.printStackTrace();
+			mCacheResponseDbHelper = null;			
+		}
+	}
+
+	static class CacheTable {
+		public static final String TABLE = "bioroid_restful_response_cache"; 
+		public static final int COLINDEX_ID = 0;
+		public static final int COLINDEX_REQUEST_URL = 1;
+		public static final int COLINDEX_HTTP_METHOD = 2;
+		public static final int COLINDEX_INVOCATION_TIME = 3;
+		public static final int COLINDEX_RESPONSE = 4;
+		public static final int COLINDEX_CALL_ID = 5;
+		
+		public static final String COL_ID = "_id"; 
+		public static final String COL_REQUEST_URL = "request_url";
+		public static final String COL_HTTP_METHOD = "http_method";
+		public static final String COL_INVOCATION_TIME = "invocation_time";
+		public static final String COL_RESPONSE = "response";
+		public static final String COL_CALL_ID = "call_id";
+	}
+	
+	class CacheResponseDbHelper extends DatabaseHelper{
+		private static final String INVOCATION_LESS_THAN = CacheTable.COL_INVOCATION_TIME+"<?";
+		private static final String REQUESTURL_AND_HTTPMETHOD_EQUALSTO = CacheTable.COL_REQUEST_URL+"=? and "+CacheTable.COL_HTTP_METHOD+"=?";
+		
+		public CacheResponseDbHelper(Context context, String dbName, int version) {
+			super(context, dbName, version);		
+		}
+		
+		public long insertResponse(String request_url, String response, long time, String httpMethod, long call_id){
+			ContentValues values = new ContentValues();
+			values.put(CacheTable.COL_REQUEST_URL, request_url);
+			values.put(CacheTable.COL_HTTP_METHOD, httpMethod);
+			values.put(CacheTable.COL_INVOCATION_TIME, time);
+			values.put(CacheTable.COL_CALL_ID, call_id);
+			values.put(CacheTable.COL_RESPONSE, response);
+			Logger.l(Logger.DEBUG, LOG_TAG,"insertResponse. values: "+values.toString());
+			long rowsAffected = mCacheReponseDb.insert(CacheTable.TABLE, null, values);
+			return rowsAffected;
+		}
+		
+		public String getResponse(String request_url, String httpMethod){
+			Log.d(LOG_TAG,"getResponse. "+request_url+", "+httpMethod);
+			Cursor c = mCacheReponseDb.query(CacheTable.TABLE, null, REQUESTURL_AND_HTTPMETHOD_EQUALSTO, new String[]{request_url,httpMethod}, null, null, null);
+			if(c != null){
+				if(c.getCount() > 0){
+					if(c.moveToFirst()){
+						String resp = c.getString(CacheTable.COLINDEX_RESPONSE);
+						c.close();
+						return resp;
+					}
+				}
+			}
+			try{
+				c.close();
+			}catch(Exception e){				
+			}
+			return null;
+		}
+		
+		public void clear(){
+			mCacheReponseDb.delete(CacheTable.TABLE, null, null);
+		}
+		
+		public void clear(long ageLimit){
+			mCacheReponseDb.delete(CacheTable.TABLE, INVOCATION_LESS_THAN, new String[]{Long.toString(ageLimit)});
+		}
+	}
 	
 	private void init(String packageName){
 		BASE_PACKAGE = packageName+"."+mName+".restful";
@@ -118,7 +204,7 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		httpClient.getConnectionManager().shutdown();		
 	}
 	
-	public RestfulClient(Context context, LinkedHashMap<Integer, Class<?>> methods, ResponseHandler<S> responseHandler, String name) {
+	public RestfulClient(Context context, LinkedHashMap<Integer, Class<?>> methods, RestfulResponseHandler<S> responseHandler, String name) {
 		if(name == null){
 			throw new IllegalArgumentException("name can not be null");
 		}
@@ -165,6 +251,10 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 			//	Logger.l(Logger.DEBUG, LOG_TAG, "rejectedExecution. #activethread:"+executor.getActiveCount()+", queue.size:"+executor.getQueue().size());				
 			}
 		});
+		
+		if(context != null){
+			setContext(context);
+		}
 	}
 	
 	public static Parcelable getParcelable(Bundle data, String name) {
@@ -221,6 +311,11 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 				
 	}
 
+	/**
+	 * Executes a rest operation with the method given in the Bundle data.
+	 * @param b
+	 * @throws IllegalArgumentException
+	 */
 	public void execute(final Bundle b) throws IllegalArgumentException{
 		
 		Runnable r = new Runnable() {			
@@ -245,12 +340,32 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		mExecutor.execute(r);
 	}
 	
-	public <T extends HttpRequestBase> void execute(final T httpMethod,final Bundle data) {
+	/**
+	 * Executes an HTTP method  
+	 * 
+	 * @param <T>
+	 * @param httpMethod the HTTP method to be invoked
+	 * @param data the original request data to be passed on to post processors.
+	 */
+	public <T extends HttpRequestBase> void execute(final T httpMethod,final Bundle data) {		
 		//Logger.l(Logger.DEBUG, LOG_TAG, httpMethod.getRequestLine().toString());
+				
 		DefaultHttpClient httpClient = new DefaultHttpClient();
 		S response = null;
-		String exceptionMessage = null;
 		
+		String exceptionMessage = null;
+		String cachedResponse = null;
+		boolean useCachedResponse = false; 
+		
+		String requestUrl = httpMethod.getRequestLine().getUri().toString();
+		
+		if(mResponseCacheInitialized){
+			cachedResponse = mCacheResponseDbHelper.getResponse(requestUrl, httpMethod.getMethod());		
+			Logger.l(Logger.DEBUG, LOG_TAG, "#########################  cached response: "+cachedResponse);
+			response = mResponseHandler.createResponse(cachedResponse);
+		}
+		
+		if(cachedResponse == null){
 		try {
 			 response = httpClient.execute(httpMethod, mResponseHandler);
 		} catch (ClientProtocolException e) {		
@@ -263,8 +378,15 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 			httpMethod.abort();
 		}
 		
-		// process response
-						
+		// cache the response
+		if(exceptionMessage == null && mResponseCacheInitialized){			
+			Logger.l(Logger.DEBUG, LOG_TAG, "#########################  inserting response to cache: "+response);
+			RestfulClient.RestfulMethod method = data.getParcelable(XTRA_METHOD);
+			mCacheResponseDbHelper.insertResponse(requestUrl, response.getData().toString(), Calendar.getInstance().getTime().getTime(), httpMethod.getMethod(), method.getCallId());
+		}
+		}
+
+		// process response						
 		//Logger.l(Logger.DEBUG, LOG_TAG, "starting service with action: "+INTENT_PROCESS_RESPONSE);
 		Intent processIntent = new Intent();
 		processIntent.setAction(INTENT_PROCESS_RESPONSE);					

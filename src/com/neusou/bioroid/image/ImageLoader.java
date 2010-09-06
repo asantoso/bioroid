@@ -578,7 +578,7 @@ public class ImageLoader {
 			Calendar cal = Calendar.getInstance();
 			long currentTime = cal.getTime().getTime();
 			if(mUseCacheDatabase){
-				mCacheRecordDbHelper.insertCacheRecord(mDb, imageUrl, currentTime, contentLength);
+				mCacheRecordDbHelper.insertCacheRecord(mDb, cachedImageFile.toURL(), currentTime, contentLength);
 			}
 			if (decodedBitmap != null) {
 				mBitmapMap.put(url, decodedBitmap);
@@ -590,16 +590,16 @@ public class ImageLoader {
 		}
 	}
 	
-	class CacheTable {
+	static class CacheTable {
 		public static final String TABLE = "bioroid_imageloader_cache";
 		public static final int COLINDEX_ID = 0; 
 		public static final int COLINDEX_LAST_ACCESSED_DATE = 1;
 		public static final int COLINDEX_FILESIZE = 2;
 		public static final int COLINDEX_IMAGEPATH = 3;
-		
+	
 		public static final String COL_ID = "_id"; 
 		public static final String COL_LAST_ACCESSED_DATE = "last_accessed_date";
-		public static final String COL_FILESIZE = "filsize";
+		public static final String COL_FILESIZE = "filesize";
 		public static final String COL_IMAGEPATH = "imagepath";
 	}
 	
@@ -607,12 +607,14 @@ public class ImageLoader {
 		public CacheRecordDbHelper(Context context, String dbName, int version) {
 			super(context, dbName, version);
 		}
-		public void insertCacheRecord(SQLiteDatabase db, URL imageUrl, long time, long sizeBytes){
+		public long insertCacheRecord(SQLiteDatabase db, URL imageUrl, long time, long sizeBytes){
+			
 			ContentValues values = new ContentValues();
 			values.put(CacheTable.COL_LAST_ACCESSED_DATE, time );
 			values.put(CacheTable.COL_IMAGEPATH, imageUrl.toString());
 			values.put(CacheTable.COL_FILESIZE, sizeBytes);
-			db.insert(CacheTable.TABLE, null, values);
+			Logger.l(Logger.DEBUG, LOG_TAG,"########## insertCacheRecord. values: "+values.toString());
+			return db.insert(CacheTable.TABLE, null, values);
 		}		
 		public Cursor getAllRecords(SQLiteDatabase db){
 			return db.query(CacheTable.TABLE, null, null, null, null, null, null);			
