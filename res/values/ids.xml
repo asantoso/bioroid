@@ -2,4 +2,5 @@
 <resources>
   <item type="id" name="tag_pageable_internalTag" />
   <item type="id" name="tag_pageable_itemTag" />
+  <item type="id" name="parceltype_restfulresponse" />
   </resources>

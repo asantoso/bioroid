@@ -1,8 +1,27 @@
+/*
+Copyright 2010 Agus Santoso
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package com.neusou.bioroid.restful;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.URI;
+import java.io.Reader;
+import java.io.StringReader;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.LinkedHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -26,6 +45,8 @@ import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HttpContext;
 
+import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -39,7 +60,14 @@ import android.util.Log;
 import com.neusou.Logger;
 import com.neusou.bioroid.db.DatabaseHelper;
 
-public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
+/**
+ * <b>RestfulClient</b> is a restful client
+ * @author asantoso
+ * @see RestfulCallback
+ * @see RestfulService
+ * @see RestfulResponseHandler
+ */
+public class RestfulClient {
 	
 	public static final String LOG_TAG = Logger.registerLog(RestfulClient.class);	
 	private DefaultHttpClient httpClient;
@@ -71,15 +99,11 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	 */
 	public String XTRA_REQUEST;
 	
-	
-	
 	private String mName = "default";
 	private Context mContext;
 	private ThreadPoolExecutor mExecutor = new ThreadPoolExecutor(1,20,1,TimeUnit.SECONDS,new LinkedBlockingQueue<Runnable>());
-	
-	private LinkedHashMap<Integer, Class<?>> mMethods = new LinkedHashMap<Integer, Class<?>>(1);
-	private RestfulResponseHandler<S> mResponseHandler;
-	
+		
+	public static final String KEY_IMMEDIATECALLBACK = "IMMEDIATE_CALLBACK";
 	public static final String KEY_CALL_METHOD = "CALL_METHOD";
 	public static final String KEY_PROCESS_RESPONSE = "PROCESS_RESPONSE";
 	public static final String KEY_EXECUTE_REQUEST = "EXECUTE_REQUEST";
@@ -212,23 +236,29 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		httpClient.getConnectionManager().shutdown();		
 	}
 	
-	public RestfulClient(Context context, LinkedHashMap<Integer, Class<?>> methods, RestfulResponseHandler<S> responseHandler, String name) {
+	/**
+	 * Creates a <b>RestfulClient</b><br/><br/>
+	 * The intent actions will generated with the following rule: <br/><br/>
+	 * &lt;the package name of the supplied context&gt;.&lt;the supplied name&gt;.restful.&lt;the action name&gt;
+	 * 
+	 * <br/><br/>Example: with context has package name com.neusou.facegraph and FB as the restful client name:<br/><br/>
+	 * com.neusou.facegraph.FB.restful.PROCESS_RESPONSE<br/>
+	 * com.neusou.facegraph.FB.restful.EXECUTE_REQUEST<br/>
+	 * com.neusou.facegraph.FB.restful.EXECUTE_REQUEST
+	 * <br/>
+	 * @param context context
+	 * @param name the unique name of the restful client
+	 */
+	public RestfulClient(Context context, String name) {
 		if(name == null){
 			throw new IllegalArgumentException("name can not be null");
 		}
-		if(responseHandler == null){
-			throw new IllegalArgumentException("response handler can not be null");
-		}
-		if(methods == null){
-			throw new IllegalArgumentException("method maps can not be null");
-		}
+		
 		if(context == null){
 			Logger.l(Logger.WARN, LOG_TAG, "Required Context argument is null.");
 		}
 						
-		mMethods = methods;
-		mContext = context;
-		mResponseHandler = responseHandler;	
+		mContext = context;		
 		mName = name;
 		
 		HttpParams httpParams = new BasicHttpParams();
@@ -251,8 +281,7 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 				return false;
 			}
 		});
-		
-		
+				
 		mExecutor.setRejectedExecutionHandler(new RejectedExecutionHandler() {			
 			@Override
 			public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
@@ -272,62 +301,20 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		}
 		return data.getParcelable(name);
 	}
-
-	public static <T> T getParcelable(Bundle data, Class<T> type) {
-		String name = type.getClass().getCanonicalName();
-		boolean invocation = data.containsKey(name);
-		if (!invocation) {
-			return null;
-		}
-		return (T) data.getParcelable(name);
-	}
-
-	public <T extends HttpRequestBase> S sendRequest(String request, T method) throws Exception {
-		//Logger.l(Logger.DEBUG, LOG_TAG, "request line: " + request);
-		DefaultHttpClient httpClient = new DefaultHttpClient();
-		return httpClient.execute(method, mResponseHandler);
-	}
 	
-	public <T extends HttpRequestBase> S sendRequest(String request, Class<T> method) throws Exception {
-	//	Logger.l(Logger.DEBUG, LOG_TAG, "request line: " + request);
-		URI reqURI = URI.create(request);
-		T httpMethod;
-		try {
-			httpMethod = (T) method.newInstance();
-			httpMethod.setURI(reqURI);
-			
-			S response = httpClient.execute(httpMethod, mResponseHandler);
-			//Log.d(LOG_TAG, " response: " + response.toString());		
-			return response;
-		} catch (IllegalAccessException e) {
-			e.printStackTrace();			
-			throw e;
-		} catch (InstantiationException e) {
-			e.printStackTrace();			
-			throw e;
-		} catch (IllegalArgumentException e) {
-			e.printStackTrace();
-			throw e;
-		} catch (SecurityException e) {
-			e.printStackTrace();
-			throw e;
-		} catch (UnknownHostException e){
-			e.printStackTrace();
-			throw e;
-		} finally{			
-		}
-				
-	}
-
 	/**
-	 * Executes a rest operation with the method given in the Bundle data.
-	 * @param b
-	 * @throws IllegalArgumentException
-	 */
+	* Extracts a restful method contained in the <b>Bundle</b> data and executes it. 
+	* The operation returns immediately and does not block the calling thread.
+	* <br/><br/>
+	* Usage: <b>Activity</b> should not call this directly, should be called by a <b>Service</b>. 
+	* 
+	* @param b
+	* @throws IllegalArgumentException
+	*/
 	public void execute(final Bundle b) throws IllegalArgumentException{
 		
 		Runnable r = new Runnable() {			
-			@Override
+			@Override 
 			public void run() {
 				if(b == null){
 		//			Logger.l(Logger.WARN, LOG_TAG, "no execution data");
@@ -338,7 +325,8 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 				}
 				
 				RestfulMethod method = (RestfulMethod) getParcelable(b, XTRA_METHOD);
-			//	Logger.l(Logger.WARN, LOG_TAG, "executing restful method "+method.describeContents()+" "+method.getClass().getCanonicalName());
+				
+				Logger.l(Logger.WARN, LOG_TAG, "executing restful method "+method.describeContents()+" "+method.getClass().getCanonicalName());
 				
 				method.go(b);
 			}
@@ -349,17 +337,20 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	}
 	
 	/**
-	 * Executes an HTTP method  
-	 * 
-	 * @param <T>
-	 * @param httpMethod the HTTP method to be invoked
-	 * @param data the original request data to be passed on to post processors.
-	 */
-	public <T extends HttpRequestBase> void execute(final T httpMethod,final Bundle data) {		
-		//Logger.l(Logger.DEBUG, LOG_TAG, httpMethod.getRequestLine().toString());
+	* Executes HTTP method
+	* @param <T> Http Request Method class
+	* @param <V> Restful response class
+	* @param <M> restful method class
+	* @param <R> response handler class
+	* @param httpMethod http request method
+	* @param rh response handler
+	* @param data extra invocation data
+	*/
+	public <T extends HttpRequestBase,V extends IRestfulResponse<?>, M extends RestfulMethod, R extends RestfulResponseHandler<V,M>> void execute(final T httpMethod, R rh, final Bundle data) {		
+		Logger.l(Logger.DEBUG, LOG_TAG, "execute() "+ httpMethod.getRequestLine().toString());
 				
 		DefaultHttpClient httpClient = new DefaultHttpClient();
-		S response = null;
+		V response = null;
 		
 		String exceptionMessage = null;
 		String cachedResponse = null;
@@ -371,29 +362,51 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		Logger.l(Logger.DEBUG, LOG_TAG, "# # # # #  useCache? "+isResponseCached);
 		
 		if(mResponseCacheInitialized && isResponseCached){
+			httpMethod.getParams().setBooleanParameter("param1", true);			
+			//Log.d(LOG_TAG, "paramstring: "+paramString);
 			cachedResponse = mCacheResponseDbHelper.getResponse(requestUrl, httpMethod.getMethod());		
 			Logger.l(Logger.DEBUG, LOG_TAG, "# # # # # cached response: "+cachedResponse);
-			response = mResponseHandler.createResponse(cachedResponse);
+			response = rh.createResponse(cachedResponse);			
+			response.set(new StringReader(cachedResponse));			
 		}
 		
 		if(cachedResponse == null){
 		try {
-			 response = httpClient.execute(httpMethod, mResponseHandler);
+			 response = httpClient.execute(httpMethod, rh);
 		} catch (ClientProtocolException e) {		
 			e.printStackTrace();
 			exceptionMessage = e.getMessage();
-			httpMethod.abort();
-		} catch (IOException e) {
+			httpMethod.abort();		
+		} catch(UnknownHostException e){
 			e.printStackTrace();
-			exceptionMessage = e.getMessage();
+			exceptionMessage = "not connected to the internet";
+			httpMethod.abort();
+		} catch(IOException e){
+			e.printStackTrace();
+			exceptionMessage = "connection error. please try again.";
 			httpMethod.abort();
 		}
 		
 		// cache the response
 		if(exceptionMessage == null && mResponseCacheInitialized && isResponseCached){			
 			Logger.l(Logger.DEBUG, LOG_TAG, "# # # # # inserting response to cache: "+response);
-			RestfulClient.RestfulMethod method = data.getParcelable(XTRA_METHOD);
-			mCacheResponseDbHelper.insertResponse(requestUrl, response.getData().toString(), Calendar.getInstance().getTime().getTime(), httpMethod.getMethod(), method.getCallId());
+			M method = data.getParcelable(XTRA_METHOD);			
+			BufferedReader br = new BufferedReader(response.get());
+			StringBuilder sb = new StringBuilder();
+			char[] buffer = new char[51200];
+			try {
+				while(true){
+					int bytesRead;				
+					bytesRead = br.read(buffer);
+					if(bytesRead == -1){
+						break;
+					}
+					sb.append(buffer,0,bytesRead);
+				}
+				mCacheResponseDbHelper.insertResponse(requestUrl,sb.toString(), Calendar.getInstance().getTime().getTime(), httpMethod.getMethod(), method.getCallId());
+			} catch (IOException e) {					
+				e.printStackTrace();
+			}
 		}
 		}
 
@@ -404,51 +417,70 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 		processIntent.putExtra(XTRA_RESPONSE, response);
 		processIntent.putExtra(XTRA_ERROR, exceptionMessage);
 		processIntent.putExtra(XTRA_REQUEST, data);
+		mContext.startService(processIntent);	
 		
-		mContext.startService(processIntent);		
+		boolean imcallback = data.getBoolean(KEY_IMMEDIATECALLBACK, false);
+		if(imcallback){
+			Bundle callbackData = new Bundle();
+			callbackData.putBundle(XTRA_REQUEST, data);
+			callbackData.putParcelable(XTRA_RESPONSE, response);
+			callbackData.putString(XTRA_ERROR, exceptionMessage);
+			broadcastCallback(mContext, callbackData, generateKey(mContext.getPackageName(), mName, RestfulClient.KEY_CALLBACK_INTENT));
+		}
+					
 	}
-	
-	/*
-	//generic restful execution
-	public <T extends HttpRequestBase> void execute(final String request, final Bundle data, final Class<T> httpMethod) {
-				S response = null;
-				String exceptionMessage = null;
-				try {
-					response = sendRequest(request, httpMethod);
-				} catch (Exception e) {
-					e.printStackTrace();
-					onExecuteError(e);					
-					exceptionMessage = e.getClass().getCanonicalName()+": "+e.getMessage();
-				}
-				
-				// process response
-								
-				Logger.l(Logger.DEBUG, LOG_TAG, "starting service with action: "+INTENT_PROCESS_RESPONSE);
-				Intent processIntent = new Intent();
-				processIntent.setAction(INTENT_PROCESS_RESPONSE);					
-				processIntent.putExtra(XTRA_RESPONSE, response);
-				processIntent.putExtra(XTRA_ERROR, exceptionMessage);
-				processIntent.putExtra(XTRA_REQUEST, data);
-				
-				mContext.startService(processIntent);
-			
-	}
-	*/
-	
+
 	/**
 	 * Sends an Intent callback to the original caller
 	 * @param ctx
 	 * @param data
 	 */
-	public static void broadcastCallback(Context ctx, Bundle data, String action) {
-		if (ctx != null ){			
+	public void broadcastCallback(Context ctx, Bundle data, String action) {
+		if (ctx != null ){
 			//Log.d(LOG_TAG,"broadcastCallback action:"+action);
-			Intent i = new Intent(action);
+			Intent i = new Intent(action);		
+			//i.putExtra(, value);
 			i.putExtras(data);
-			ctx.sendBroadcast(i);
+			
+			//runs on the context main thread
+			ctx.sendOrderedBroadcast(i, null, mLastCallbackReceiver,null, Activity.RESULT_OK, null, null);
+			
+			//ctx.sendBroadcast(i);
 		}
 	}
-
+	
+	volatile long mCallId = 0;
+	
+	ArrayList<Long> mCallIds = new ArrayList<Long>();
+	
+	public long getNewCallId(){
+		mCallId++;
+		if(mCallId >= Long.MAX_VALUE){
+			mCallId = 0;
+		}
+		return mCallId;
+	}
+	
+	BroadcastReceiver mLastCallbackReceiver = new BroadcastReceiver() {		
+		@Override
+		public void onReceive(Context ctx, Intent i) {
+			Logger.l(Logger.DEBUG, LOG_TAG,"LastCallbackReceiver-onReceive() ");
+			String dataString = i.getDataString();
+			int resultCode = getResultCode();
+			Bundle b = i.getExtras();
+			Bundle request = i.getBundleExtra(XTRA_REQUEST);			
+	    	RestfulMethod restMethod = (RestfulMethod) request.getParcelable(XTRA_METHOD);
+	    	String restclass = restMethod.getClass().getCanonicalName();
+			Logger.l(Logger.DEBUG, LOG_TAG,"LastCallbackReceiver-onReceive() data:"+dataString+" code: "+resultCode+" restmethodclass: "+restclass);
+			
+			if(resultCode == RestfulCallback.NOTCONSUMED){
+				restMethod.getCallId();
+				
+			}
+			
+		}
+	}; 
+	
 	public static interface RestfulMethod extends Parcelable{		
 		public void go(Bundle b);
 		public long getCallId();
@@ -477,60 +509,15 @@ public class RestfulClient<S extends RestfulClient.IRestfulResponse<?>> {
 	}
 	
 	/**
-	 * Default implementation of IRestfulResponse
-	 * @author asantoso
-	 *
+	 * <b>IRestfulResponse</b> is the interface or class contract for a valid restful response
+	 * @param <D>
 	 */
-	public static class RestfulResponse implements IRestfulResponse<String>{
-		
-		private String data;
-		
-		public RestfulResponse(String response) {
-			data = response;
-		}
-		
-		@Override
-		public int describeContents() {			
-			return 0;
-		}
-
-		@Override
-		public void writeToParcel(Parcel dest, int flags) {
-			dest.writeString(data);
-		}
-		
-		public static final Parcelable.Creator<RestfulResponse> CREATOR = new Creator<RestfulResponse>() {
-			
-			@Override
-			public RestfulResponse[] newArray(int size) {
-				return null;
-			}
-			
-			@Override
-			public RestfulResponse createFromParcel(Parcel source) {
-				return new RestfulResponse(source.readString());
-			}
-		};
-	
-		@Override
-		public void setData(String data) {
-			this.data = data;
-		}
-		
-		@Override
-		public String getData() {
-			return this.data;
-		}
-		
-		
-	}
-		
 	public static interface IRestfulResponse<D> extends Parcelable{
-		public void setData(D data);
 		public D getData();
+		public void setData(D data);
+		public void set(Reader source);
+		public Reader get();		
 	};
-
-
 	
 }
 
